@@ -17,13 +17,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/sashabaranov/go-openai"
 
+	"github.com/kevin1sMe/talk-with-ai/internal/asr"
+	myplayer "github.com/kevin1sMe/talk-with-ai/internal/player"
+	"github.com/kevin1sMe/talk-with-ai/internal/recorder"
+	"github.com/kevin1sMe/talk-with-ai/internal/tts"
+	"github.com/kevin1sMe/talk-with-ai/internal/tui"
 	log "github.com/sirupsen/logrus"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	"gitlab.mrlin.cc/kevinlin/ai-tell-you/internal/asr"
-	myplayer "gitlab.mrlin.cc/kevinlin/ai-tell-you/internal/player"
-	"gitlab.mrlin.cc/kevinlin/ai-tell-you/internal/recorder"
-	"gitlab.mrlin.cc/kevinlin/ai-tell-you/internal/tts"
-	"gitlab.mrlin.cc/kevinlin/ai-tell-you/internal/tui"
 )
 
 var (
