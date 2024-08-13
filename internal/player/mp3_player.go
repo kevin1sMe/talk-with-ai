@@ -141,6 +141,12 @@ func (p *MyPlayer) GracefulStop() {
 func (p *MyPlayer) initializePlayer() {
 	log.Debug("正在初始化解码器")
 	var err error
+	// p.decoder, err = mp3.NewDecoder(p.buffer)
+	// if err != nil {
+	// 	log.Fatalf("mp3.NewDecoder failed: %v", err)
+	// 	return
+	// }
+
 	p.decoder, err = mp3.NewDecoder(p.buffer)
 	if err != nil {
 		log.Fatalf("mp3.NewDecoder failed: %v", err)

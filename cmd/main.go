@@ -18,7 +18,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/kevin1sMe/talk-with-ai/internal/asr"
-	myplayer "github.com/kevin1sMe/talk-with-ai/internal/player"
+	gptsovits "github.com/kevin1sMe/talk-with-ai/internal/gpt-sovits"
 	"github.com/kevin1sMe/talk-with-ai/internal/recorder"
 	"github.com/kevin1sMe/talk-with-ai/internal/tts"
 	"github.com/kevin1sMe/talk-with-ai/internal/tui"
@@ -198,7 +198,8 @@ func QA(c *openai.Client, request string, inChan chan tui.Event) {
 	go func() {
 		defer wg.Done()
 		log.Warn("StreamTTS goroutine start...")
-		StreamTTS(voiceType, emotionCategory, textChan, audioChan)
+		// StreamTTS(voiceType, emotionCategory, textChan, audioChan)
+		StreamTTSWithSovits(voiceType, emotionCategory, textChan, audioChan)
 		log.Warn("✅StreamTTS goroutine exit")
 		close(audioChan)
 	}()
@@ -276,12 +277,96 @@ func CompletionStream(client *openai.Client, model string, msgs []openai.ChatCom
 			return
 		}
 
-		// log.Debugf("接收到AI流式响应： [%s]", resp.Choices[0].Delta.Content)
+		log.Debugf("接收到AI流式响应： [%s]", resp.Choices[0].Delta.Content)
 		content := resp.Choices[0].Delta.Content
 		respText.Write([]byte(content))
 
 		textChan <- content
 	}
+}
+
+// StreamTTS 语音合成
+// 读取textChan中的数据，将它以。分割，然后合成语音
+func StreamTTSWithSovits(voiceType int64, emotionCategory string, textChan chan string, audioChan chan []byte) {
+	var buffer strings.Builder
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	// s := tts.NewRealTimeSpeechSynthesizer(int64(appId), secretId, secretKey, voiceType, emotionCategory, speed)
+	s := gptsovits.NewGPTSovits("http://127.0.0.1:6006/tts", gptsovits.RequestParams{
+		TextLang:        "zh",
+		RefAudioPath:    "/root/GPT-SoVITS/paimeng.wav",
+		PromptText:      "哇，这个，还有这个…只是和史莱姆打了一场，就有这么多结论吗？",
+		PromptLang:      "zh",
+		TextSplitMethod: "cut5",
+		BatchSize:       1,
+		MediaType:       "wav",
+		StreamingMode:   true,
+	})
+
+	sentenceChan := make(chan string)
+	// 启动一个 goroutine 来处理语音转换， 这样才能按顺序
+	go func() {
+		defer wg.Done()
+		index := 1
+		for sentence := range sentenceChan {
+			log.Debug("----------------------------------")
+			log.Debugf("正在转换第[%d]段语音中，文字内容为:%s ", index, sentence)
+			s.Run(sentence, audioChan)
+			index++
+			log.Debug("----------------------------------")
+		}
+		log.Info("**语音转换全部结束！！**")
+	}()
+
+	index := 1
+	for {
+		select {
+		case resp, ok := <-textChan:
+			if !ok {
+				log.Debugf("TextChan closed, buf len:%d", buffer.Len())
+				// Channel 已关闭
+				if buffer.Len() > 0 {
+					// 发送句子到通道
+					sentenceChan <- strings.TrimSpace(buffer.String())
+				}
+				goto END
+			}
+
+			log.Debugf("Speech recv [%q]", resp)
+			buffer.WriteString(resp)
+
+			// 按句号分割句子
+			content := buffer.String()
+			sentences := strings.Split(content, "。")
+
+			// 重置 buffer
+			buffer.Reset()
+
+			for i, sentence := range sentences {
+				sentence = strings.TrimSpace(sentence)
+				if sentence == "" {
+					continue
+				}
+
+				if i == len(sentences)-1 && !strings.HasSuffix(content, "。") {
+					// 最后一个句子可能是不完整的，保存到 buffer 中
+					buffer.WriteString(sentence)
+				} else {
+					sentenceChan <- sentence + "。"
+					log.Debugf("发送第[%d]句子到sentenceChan：%s", index, sentence)
+					index++
+				}
+			}
+
+		}
+	}
+END:
+	close(sentenceChan)
+	log.Debug("sentenceChan closed")
+
+	wg.Wait()
 }
 
 // StreamTTS 语音合成
@@ -371,21 +456,32 @@ func sendAudioToASR(c *asr.ASRClient, data []byte) string {
 // 播放语音
 func PlayStreamAudio(audioStream chan []byte) {
 	log.Debug("正在准备播放语音...")
-	player := myplayer.NewMyPlayer(audioStream)
-	player.Reset()
+	// player := myplayer.NewMyPlayer(audioStream)
+	// player.Reset()
+
+	// wg := sync.WaitGroup{}
+	// wg.Add(2)
+	// go func() {
+	// 	defer wg.Done()
+	// 	player.Play()
+	// 	log.Debug("Player started")
+	// }()
+	// go func() {
+	// 	defer wg.Done()
+	// 	player.GracefulStop()
+	// 	log.Debug("GracefulStop finished")
+	// }()
+	// wg.Wait()
 
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		player.Play()
-		log.Debug("Player started")
-	}()
-	go func() {
-		defer wg.Done()
-		player.GracefulStop()
-		log.Debug("GracefulStop finished")
+		defer close(audioStream)
+		for audio := range audioStream {
+			fmt.Println("receive audio stream ", len(audio))
+		}
 	}()
 	wg.Wait()
+
 	log.Debug("语音播放完成，播放器退出...")
 }

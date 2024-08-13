@@ -21,8 +21,9 @@ func TestRun(t *testing.T) {
 	// 		"streaming_mode":    true,
 	// 	}
 	s := NewGPTSovits("http://127.0.0.1:6006/tts", RequestParams{
-		TextLang:        "zh",
-		RefAudioPath:    "/mnt/c/Users/kevinlin/Source/GPT-SoVITS/samples/paimeng.wav",
+		TextLang: "zh",
+		// RefAudioPath:    "/mnt/c/Users/kevinlin/Source/GPT-SoVITS/samples/paimeng.wav",
+		RefAudioPath:    "/root/GPT-SoVITS/paimeng.wav",
 		PromptText:      "哇，这个，还有这个…只是和史莱姆打了一场，就有这么多结论吗？",
 		PromptLang:      "zh",
 		TextSplitMethod: "cut5",
