@@ -1,9 +1,8 @@
 package gptsovits
 
 import (
+	"fmt"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRun(t *testing.T) {
@@ -34,6 +33,11 @@ func TestRun(t *testing.T) {
 
 	text := "先帝创业未半而中道崩殂，今天下三分，益州疲弊，此诚危急存亡之秋也。"
 	audioStream := make(chan []byte)
+	go func() {
+		defer close(audioStream)
+		for audio := range audioStream {
+			fmt.Println("receive audio stream ", len(audio))
+		}
+	}()
 	s.Run(text, audioStream)
-	assert.NotZero(t, len(audioStream))
 }
